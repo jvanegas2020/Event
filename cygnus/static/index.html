@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cygnus 2.0 · Entrenador</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Cygnus <span>2.0</span></h1>
+  <p>Entrena tu resistencia a la ingeniería social en un entorno seguro.</p>
+</header>
+
+<main>
+  <section id="consent" class="card">
+    <h2>Antes de empezar</h2>
+    <p>Esto es una <strong>simulación educativa</strong>. Las entidades, enlaces y teléfonos son ficticios.
+       Solo se guarda un identificador aleatorio y tus resultados; <strong>nunca el texto de tus mensajes</strong>.
+       Puedes borrar tus datos cuando quieras.</p>
+    <label class="check"><input type="checkbox" id="ok"> Entiendo y acepto entrenar con simulaciones.</label>
+    <button id="start" disabled>Empezar simulación recomendada</button>
+  </section>
+
+  <section id="chat" class="card hidden">
+    <div class="meta"><span id="channel" class="badge"></span><span id="title"></span></div>
+    <p id="why" class="hint"></p>
+    <div id="log" aria-live="polite"></div>
+    <form id="form">
+      <input id="msg" autocomplete="off" maxlength="1000" placeholder="Escribe cómo responderías…" required>
+      <button>Enviar</button>
+    </form>
+    <p class="hint">Responde como lo harías de verdad. Puedes negarte, verificar o reportar. Turno <span id="turn">0</span>/<span id="max">4</span>.</p>
+  </section>
+
+  <section id="report" class="card hidden"></section>
+
+  <section id="profile" class="card">
+    <h2>Tu perfil <small id="iris"></small></h2>
+    <div id="bars"></div>
+    <div class="row">
+      <button id="again" class="secondary hidden">Siguiente simulación</button>
+      <button id="erase" class="link">Borrar mis datos</button>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
