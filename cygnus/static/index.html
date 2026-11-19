@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cygnus 2.0 · Entrenador</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Cygnus <span>2.0</span></h1>
+  <p>Diagnóstico, entrenamiento personalizado y medición de tu resistencia a la ingeniería social.</p>
+  <ol id="steps" class="steps"></ol>
+</header>
+
+<main>
+  <section id="consent" class="card hidden">
+    <h2>Antes de empezar</h2>
+    <p>Esto es una <strong>simulación educativa</strong>. Entidades, enlaces y teléfonos son ficticios.
+       Solo se guarda un identificador aleatorio y tus resultados; <strong>nunca el texto de tus mensajes</strong>.
+       Puedes borrar tus datos cuando quieras.</p>
+    <p class="hint">🎙️ <strong>Modo voz (opcional):</strong> usa el reconocimiento de voz de tu navegador. En Chrome y Edge el audio puede
+       procesarse en los servidores del navegador (Google o Microsoft); Cygnus solo recibe el texto transcrito y no lo guarda.
+       Puedes usar solo el teclado si prefieres.</p>
+    <label class="check"><input type="checkbox" id="ok"> Entiendo y acepto participar.</label>
+    <button id="start" disabled>Comenzar mi diagnóstico</button>
+  </section>
+
+  <section id="diag" class="card hidden"></section>
+  <section id="plan" class="card hidden"></section>
+
+  <section id="chat" class="card hidden">
+    <div class="meta"><span id="channel" class="badge"></span><span id="title"></span><span id="idx" class="hint"></span>
+      <label class="voice hidden" id="voicewrap"><input type="checkbox" id="voice"> 🎙️ Modo voz</label></div>
+    <div id="callbar" class="callbar hidden"><span class="ring">📞</span> Llamada en curso…</div>
+    <p id="why" class="hint"></p>
+    <div id="log" aria-live="polite"></div>
+    <div class="live"><span class="hint">Tus respuestas:</span><div id="strip" class="strip"></div>
+      <span class="legend"><i class="g"></i>correcta <i class="r"></i>incorrecta</span></div>
+    <form id="form">
+      <input id="msg" autocomplete="off" maxlength="1000" placeholder="Escribe cómo responderías…" required>
+      <button type="button" id="mic" class="mic hidden" title="Hablar" aria-label="Hablar">🎙️</button>
+      <button id="sendbtn">Enviar</button>
+      <button type="button" id="hangup" class="secondary hidden">📵 Colgar</button>
+    </form>
+    <p id="voicestatus" class="hint hidden"></p>
+    <p class="hint">Turno <span id="turn">0</span>/<span id="max">4</span>. Puedes negarte, verificar o reportar.</p>
+  </section>
+
+  <section id="simreport" class="card hidden"></section>
+  <section id="final" class="card hidden"></section>
+
+  <section id="heat" class="card hidden">
+    <h2>Mapa de calor de tu riesgo</h2>
+    <p class="hint">Cada celda es tu riesgo en ese principio (0 = verde, seguro · 100 = rojo, vulnerable). Gris = aún sin medir.</p>
+    <div id="heatgrid" class="scroll"></div>
+  </section>
+
+  <p class="foot"><button id="erase" class="link">Borrar mis datos</button></p>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
