@@ -19,6 +19,9 @@
     <p>Esto es una <strong>simulación educativa</strong>. Entidades, enlaces y teléfonos son ficticios.
        Solo se guarda un identificador aleatorio y tus resultados; <strong>nunca el texto de tus mensajes</strong>.
        Puedes borrar tus datos cuando quieras.</p>
+    <p class="hint">🎙️ <strong>Modo voz (opcional):</strong> usa el reconocimiento de voz de tu navegador. En Chrome y Edge el audio puede
+       procesarse en los servidores del navegador (Google o Microsoft); Cygnus solo recibe el texto transcrito y no lo guarda.
+       Puedes usar solo el teclado si prefieres.</p>
     <label class="check"><input type="checkbox" id="ok"> Entiendo y acepto participar.</label>
     <button id="start" disabled>Comenzar mi diagnóstico</button>
   </section>
@@ -27,15 +30,20 @@
   <section id="plan" class="card hidden"></section>
 
   <section id="chat" class="card hidden">
-    <div class="meta"><span id="channel" class="badge"></span><span id="title"></span><span id="idx" class="hint"></span></div>
+    <div class="meta"><span id="channel" class="badge"></span><span id="title"></span><span id="idx" class="hint"></span>
+      <label class="voice hidden" id="voicewrap"><input type="checkbox" id="voice"> 🎙️ Modo voz</label></div>
+    <div id="callbar" class="callbar hidden"><span class="ring">📞</span> Llamada en curso…</div>
     <p id="why" class="hint"></p>
     <div id="log" aria-live="polite"></div>
     <div class="live"><span class="hint">Tus respuestas:</span><div id="strip" class="strip"></div>
       <span class="legend"><i class="g"></i>correcta <i class="r"></i>incorrecta</span></div>
     <form id="form">
       <input id="msg" autocomplete="off" maxlength="1000" placeholder="Escribe cómo responderías…" required>
-      <button>Enviar</button>
+      <button type="button" id="mic" class="mic hidden" title="Hablar" aria-label="Hablar">🎙️</button>
+      <button id="sendbtn">Enviar</button>
+      <button type="button" id="hangup" class="secondary hidden">📵 Colgar</button>
     </form>
+    <p id="voicestatus" class="hint hidden"></p>
     <p class="hint">Turno <span id="turn">0</span>/<span id="max">4</span>. Puedes negarte, verificar o reportar.</p>
   </section>
 

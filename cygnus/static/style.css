@@ -48,3 +48,14 @@ ul{padding-left:20px}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px
 .cmp .pair{display:flex;flex-direction:column;gap:3px}.cmp .track{height:9px}.cmp .fill.a{background:hsl(210,70%,55%)}.cmp .fill.b{background:var(--bad)}
 .big{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0}.big .n{font-size:2.2rem;font-weight:700}
 .foot{text-align:center;margin:0 0 24px}
+
+/* --- modo voz --- */
+.voice{margin-left:auto;font-size:.85rem;font-weight:400;display:flex;gap:6px;align-items:center;cursor:pointer}
+.callbar{background:color-mix(in srgb,var(--ok) 14%,var(--card));border:1px solid var(--ok);border-radius:8px;padding:6px 12px;margin:8px 0;font-size:.9rem}
+.ring{display:inline-block;animation:ring 1s infinite}
+@keyframes ring{0%,100%{transform:rotate(0)}25%{transform:rotate(-18deg)}75%{transform:rotate(18deg)}}
+.mic{font-size:1.2rem;padding:8px 14px}.mic.on{background:var(--bad);animation:pulse 1.1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 55%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+.bubble.speaking{border-color:var(--bad);animation:pulse 1.4s infinite}
+@media (prefers-reduced-motion:reduce){.ring,.mic.on,.bubble.speaking{animation:none}}
+form{flex-wrap:wrap}

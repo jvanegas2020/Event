@@ -78,6 +78,89 @@ function showPlan() {
   show("plan"); $("go").onclick = () => beginSim().catch(e => alert(e.message));
 }
 
+
+/* ---------- modo voz (Web Speech API del navegador) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const TTS = "speechSynthesis" in window;
+let voiceOn = false, rec = null, listening = false, channelNow = "", busy = false;
+
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  return vs.find(v => /es-CO|es-MX|es-US/i.test(v.lang)) || vs.find(v => /^es/i.test(v.lang)) || null;
+}
+function speakable(t) {
+  return t.replace(/https?:\/\/\S+/g, "un enlace").replace(/\[|\]/g, "").replace(/^Asunto:\s*/i, "Asunto. ").replace(/\n+/g, ". ");
+}
+function speak(text, { coach = false, onend = () => {} } = {}) {
+  if (!voiceOn || !TTS) return onend();
+  let done = false; const fin = () => { if (!done) { done = true; onend(); } };
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(speakable(text));
+    const v = pickVoice(); if (v) u.voice = v;
+    u.lang = v ? v.lang : "es-CO"; u.rate = coach ? 1.0 : 1.05; u.pitch = coach ? 1.0 : 0.85;
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, Math.min(30000, 2500 + text.length * 90));   // por si el navegador no dispara onend
+    speechSynthesis.speak(u);
+  } catch (e) { fin(); }
+}
+function vstatus(t) { const el = $("voicestatus"); el.textContent = t || ""; el.classList.toggle("hidden", !t); }
+
+function stopListening() { listening = false; $("mic").classList.remove("on"); if (rec) { try { rec.abort(); } catch (e) {} rec = null; } }
+function listen() {
+  if (!voiceOn || !SR || listening || busy || rec) return;
+  rec = new SR(); rec.lang = "es-CO"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  let finalText = "";
+  rec.onstart = () => { listening = true; $("mic").classList.add("on"); vstatus("🎙️ Te escucho… habla ahora"); };
+  rec.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const tr = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += tr; else interim += tr;
+    }
+    $("msg").value = (finalText + interim).trim();
+  };
+  rec.onerror = (e) => {
+    listening = false; $("mic").classList.remove("on");
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") vstatus("⚠️ El navegador bloqueó el micrófono. Permítelo en el candado de la barra de direcciones o escribe tu respuesta.");
+    else if (e.error === "no-speech") vstatus("No te escuché. Toca 🎙️ para intentarlo de nuevo.");
+    else if (e.error !== "aborted") vstatus("No pude usar la voz (" + e.error + "). Puedes escribir.");
+  };
+  rec.onend = () => {
+    rec = null; listening = false; $("mic").classList.remove("on");
+    const t = (finalText || $("msg").value).trim();
+    if (t && !busy) { vstatus("Enviando: «" + t + "»"); sendText(t); }
+  };
+  try { rec.start(); } catch (e) { vstatus("No pude iniciar el micrófono."); }
+}
+function setVoice(on) {
+  voiceOn = on && (SR || TTS);
+  try { localStorage.setItem("cygnus_voice", voiceOn ? "1" : "0"); } catch (e) {}
+  $("voice").checked = voiceOn;
+  $("mic").classList.toggle("hidden", !(voiceOn && SR));
+  if (!voiceOn) { stopListening(); if (TTS) speechSynthesis.cancel(); vstatus(""); }
+  else if (!SR) vstatus("Tu navegador puede hablar pero no escuchar. Para responder con la voz usa Chrome o Edge; por ahora escribe tu respuesta.");
+}
+function voiceUI(channel) {
+  channelNow = channel;
+  const supported = !!(SR || TTS);
+  $("voicewrap").classList.toggle("hidden", !supported);
+  $("callbar").classList.toggle("hidden", channel !== "llamada");
+  $("hangup").classList.toggle("hidden", channel !== "llamada");
+  let saved = null; try { saved = localStorage.getItem("cygnus_voice"); } catch (e) {}
+  setVoice(supported && (saved === "1" || (saved === null && channel === "llamada")));
+}
+function attackerSays(text) {
+  const b = document.createElement("div"); b.className = "bubble attacker"; b.textContent = text;
+  $("log").appendChild(b); $("log").scrollTop = 1e6;
+  b.classList.add("speaking");
+  speak(text, { onend: () => { b.classList.remove("speaking"); if (!$("form").classList.contains("hidden")) listen(); } });
+}
+$("voice").onchange = (e) => setVoice(e.target.checked);
+$("mic").onclick = () => { if (listening) { try { rec.stop(); } catch (e) {} } else { if (TTS) speechSynthesis.cancel(); listen(); } };
+$("hangup").onclick = () => sendText("Cuelgo la llamada.");
+if (TTS) speechSynthesis.onvoiceschanged = () => {};
+
 /* ---------- simulación con mapa de calor en vivo ---------- */
 function bubble(cls, text) { const d = document.createElement("div"); d.className = "bubble " + cls; d.textContent = text; $("log").appendChild(d); $("log").scrollTop = 1e6; }
 function note(text) { const d = document.createElement("div"); d.className = "fb"; d.textContent = text; $("log").appendChild(d); $("log").scrollTop = 1e6; }
@@ -89,23 +172,26 @@ async function beginSim() {
   $("channel").textContent = s.scenario.channel; $("title").textContent = s.scenario.title;
   $("idx").textContent = `· simulación ${s.index} de ${s.total}`;
   $("why").textContent = s.why; $("max").textContent = s.max_turns; $("turn").textContent = 0;
-  $("form").classList.remove("hidden"); bubble("attacker", s.attacker); $("msg").focus();
+  $("form").classList.remove("hidden"); voiceUI(s.scenario.channel); attackerSays(s.attacker); $("msg").focus();
 }
 function addStrip(score) { const i = document.createElement("i"); i.style.background = riskColor(100 - score); i.title = `Calidad de la respuesta: ${score}/100`; $("strip").appendChild(i); }
 
-$("form").onsubmit = async (e) => {
-  e.preventDefault();
-  const text = $("msg").value.trim(); if (!text) return;
-  $("msg").value = ""; bubble("user", text); $("turn").textContent = ++turn;
+async function sendText(text) {
+  text = (text || "").trim(); if (!text || busy) return;
+  busy = true; stopListening(); if (TTS) speechSynthesis.cancel();
+  $("msg").value = ""; vstatus(""); bubble("user", text); $("turn").textContent = ++turn;
   try {
     const r = await post(`/session/${sid}/message`, { text });
     addStrip(r.turn_score); note(r.feedback);
-    if (r.finished) simReport(r.report); else bubble("attacker", r.attacker);
-  } catch (err) { note(err.message); }
-};
+    busy = false;
+    if (r.finished) { stopListening(); simReport(r.report); speak(`${r.report.outcome_label}. ${r.report.lesson}`, { coach: true }); }
+    else attackerSays(r.attacker);
+  } catch (err) { busy = false; note(err.message); }
+}
+$("form").onsubmit = (e) => { e.preventDefault(); sendText($("msg").value); };
 
 async function simReport(r) {
-  $("form").classList.add("hidden");
+  $("form").classList.add("hidden"); $("callbar").classList.add("hidden"); vstatus("");
   const cls = r.score >= 80 ? "good" : r.score >= 40 ? "mid" : "bad";
   $("simreport").innerHTML = `<h2>Resultado de la simulación</h2>
     <div class="score ${cls}">${r.score}/100</div><strong>${esc(r.outcome_label)}</strong>

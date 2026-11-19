@@ -11,6 +11,9 @@ Es una simulación **educativa y defensiva**: el atacante simulado solo existe d
 4. **Diagnóstico final**: forma paralela del test (situaciones distintas, mismos principios) para que el antes/después no mida memoria.
 5. **Informe final**: perfil de riesgo antes vs después por principio, narrativa, simulaciones, hábitos por mejorar y controles ISO/IEC 27001:2022.
 
+## Modo voz
+El atacante **habla** (síntesis de voz del navegador) y tú **respondes hablando** (reconocimiento de voz). En escenarios de llamada se activa solo y aparece el botón **Colgar**. Flujo: el atacante habla → se abre el micrófono → tu respuesta se transcribe y se envía sola → el atacante replica. Funciona en Chrome y Edge (Firefox no tiene reconocimiento de voz); requiere `localhost` o HTTPS. En Chrome/Edge el audio puede procesarse en servidores del navegador; Cygnus solo recibe el texto y no lo guarda. Siempre se puede escribir en lugar de hablar.
+
 ## Otras características
 - **9 escenarios** (finanzas, salud, tecnología, educación; SMS, correo, WhatsApp, llamada) con entidades y enlaces ficticios (`.example`).
 - **Evaluador determinista** (auditable, sin LLM) de las respuestas en cada simulación.
