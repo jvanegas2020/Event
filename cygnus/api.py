@@ -13,6 +13,15 @@ from . import diagnostic, engine, profile, program
 from .scenarios import PRINCIPLE_LABELS, SCENARIOS
 
 app = FastAPI(title="Cygnus 2.0", version="0.1.0")
+
+
+@app.middleware("http")
+async def no_stale_cache(request, call_next):
+    """El navegador debe revalidar siempre la interfaz: evita ver una versión vieja tras actualizar."""
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 STATIC = os.path.join(os.path.dirname(__file__), "static")
 UID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 

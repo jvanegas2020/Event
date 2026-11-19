@@ -212,3 +212,8 @@ def test_live_turn_score_for_heatmap():
     m1 = client.post(f"/api/session/{s['session_id']}/message", json={"text": "hmm, quién es?"}).json()
     m2 = client.post(f"/api/session/{s['session_id']}/message", json={"text": "mi clave es 998877"}).json()
     assert m1["turn_score"] == 45 and m2["turn_score"] == 0
+
+
+def test_ui_is_never_served_stale():
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert client.get("/static/app.js").headers["cache-control"] == "no-cache"

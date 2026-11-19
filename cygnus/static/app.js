@@ -73,9 +73,14 @@ function showPlan() {
     <p>${esc(p.summary)}</p>` +
     p.items.map((it, k) => `<div class="planitem"><strong>${k + 1}. ${esc(it.title)}</strong>
       <span class="badge">${esc(it.channel)}</span> ${k < done ? "✅" : ""}<div class="hint">${esc(it.reason)}</div></div>`).join("") +
+    `<label class="check"><input type="checkbox" id="voicePlan"> 🎙️ <strong>Modo voz</strong>: el atacante habla y tú respondes con tu voz (Chrome o Edge). Puedes cambiarlo en cada simulación.</label>` +
     (pre.habits_score != null ? `<p class="hint">Factor de hábitos: ${Math.round(pre.habits_score)}/100 (se incluye en tu informe final).</p>` : "") +
     `<button id="go">${done ? "Continuar con la simulación " + (done + 1) : "Comenzar entrenamiento"}</button>`;
-  show("plan"); $("go").onclick = () => beginSim().catch(e => alert(e.message));
+  show("plan");
+  let saved = null; try { saved = localStorage.getItem("cygnus_voice"); } catch (e) {}
+  $("voicePlan").checked = saved === "1";
+  $("voicePlan").onchange = (e) => { try { localStorage.setItem("cygnus_voice", e.target.checked ? "1" : "0"); } catch (err) {} };
+  $("go").onclick = () => beginSim().catch(e => alert(e.message));
 }
 
 
