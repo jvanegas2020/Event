@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import engine, profile
+from . import diagnostic, engine, profile, program
 from .scenarios import PRINCIPLE_LABELS, SCENARIOS
 
 app = FastAPI(title="Cygnus 2.0", version="0.1.0")
@@ -82,3 +82,85 @@ def index():
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+# ---------------- Programa: diagnóstico -> plan -> simulaciones -> informe ----------------
+class ProgramIn(BaseModel):
+    user_id: str
+    consent: bool
+    restart: bool = False
+
+
+class DiagIn(BaseModel):
+    answers: dict[str, int]
+
+
+def _prog_or_404(pid: str):
+    try:
+        return program.state(pid)
+    except KeyError:
+        raise HTTPException(404, "Programa no encontrado")
+
+
+@app.post("/api/program")
+def program_start(body: ProgramIn):
+    if not body.consent:
+        raise HTTPException(400, "Se requiere consentimiento informado.")
+    uid = _uid(body.user_id)
+    prog = None if body.restart else profile.latest_program(uid)
+    if prog and program.state(prog["id"])["stage"] == "informe":
+        prog = None   # el anterior ya terminó: se abre uno nuevo
+    if not prog:
+        prog = program.create(uid)
+    return program.state(prog["id"])
+
+
+@app.get("/api/program/by-user/{user_id}")
+def program_by_user(user_id: str):
+    prog = profile.latest_program(_uid(user_id))
+    return program.state(prog["id"]) if prog else {"stage": "sin_programa"}
+
+
+@app.get("/api/program/{pid}")
+def program_get(pid: str):
+    return _prog_or_404(pid)
+
+
+@app.get("/api/program/{pid}/diagnostic/{phase}")
+def diagnostic_questions(pid: str, phase: str):
+    _prog_or_404(pid)
+    if phase not in ("pre", "post"):
+        raise HTTPException(404, "Fase inválida")
+    return {"phase": phase, "questions": diagnostic.questions(phase)}
+
+
+@app.post("/api/program/{pid}/diagnostic/{phase}")
+def diagnostic_submit(pid: str, phase: str, body: DiagIn):
+    _prog_or_404(pid)
+    try:
+        return {**program.submit_diagnostic(pid, phase, body.answers), "state": program.state(pid)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/program/{pid}/session")
+def program_session(pid: str):
+    st = _prog_or_404(pid)
+    if st["stage"] != "entrenamiento":
+        raise HTTPException(409, "No hay simulaciones pendientes en este momento")
+    prog = profile.get_program(pid)
+    sid = program.next_scenario_id(pid)
+    s, why = engine.start(prog["user_id"], sid, program_id=pid)
+    item = st["plan"]["items"][st["completed"]]
+    return {"session_id": s.id, "why": item["reason"], "scenario": s.scenario.public(),
+            "attacker": s.history[0][1], "max_turns": engine.MAX_TURNS,
+            "index": st["completed"] + 1, "total": st["total"]}
+
+
+@app.get("/api/program/{pid}/report")
+def program_report(pid: str):
+    _prog_or_404(pid)
+    try:
+        return program.final_report(pid)
+    except ValueError as e:
+        raise HTTPException(409, str(e))

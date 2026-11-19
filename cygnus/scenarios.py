@@ -161,6 +161,60 @@ SCENARIOS: tuple[Scenario, ...] = (
                       "Reportar el intento a seguridad"),
         lesson="Cada 'sí' pequeño te empuja al siguiente. Puedes parar en cualquier momento.",
     ),
+    Scenario(
+        id="fin-whatsapp-inversion",
+        title="Inversión que 'ya hizo ganar a todo el barrio'",
+        sector="finanzas", channel="whatsapp", principle="prueba_social", stage="engano_pretexto",
+        level=2, entity="Inversiones Cóndor", technique="fraude de inversión",
+        opening=("¡Hola vecino! Soy Marta de Inversiones Cóndor. Ya 52 familias de tu barrio duplicaron su dinero en 7 días. "
+                 "Mira los comprobantes en el grupo. Entra aquí y súmate: https://condor-inversion.example/unete"),
+        escalations=(
+            "Mira, Doña Rosa y don Pedro ya retiraron sus ganancias. Solo necesitas depositar 300.000 para empezar. ¿Te anoto?",
+            "Quedan pocos cupos y todos tus vecinos ya están dentro. Envíame tu cédula y tu número de cuenta para registrarte.",
+            "No te quedes por fuera como los que dudaron. Haz la transferencia hoy a esta cuenta 0456789123 y mañana ves tu ganancia.",
+        ),
+        red_flags=("Rentabilidades garantizadas y muy altas en pocos días",
+                   "Usa a otras personas («todos ya lo hicieron») como prueba",
+                   "Pide transferir dinero y datos a una cuenta personal"),
+        safe_actions=("Verificar que la entidad esté vigilada por la Superfinanciera", "No depositar a cuentas personales",
+                      "Preguntar a los vecinos por un canal independiente y reportar"),
+        lesson="Que muchos lo hagan no lo hace seguro. Verifica en fuentes oficiales, no en el grupo.",
+    ),
+    Scenario(
+        id="edu-whatsapp-grupo",
+        title="Grupo del curso con un 'formulario obligatorio'",
+        sector="educacion", channel="whatsapp", principle="prueba_social", stage="reconocimiento",
+        level=1, entity="Universidad del Caribe Digital", technique="phishing",
+        opening=("Chicos, ya 40 compañeros llenaron el formulario de actualización de matrícula, solo faltan ustedes. "
+                 "Es obligatorio hoy: https://ucd-matricula.example/form"),
+        escalations=(
+            "Casi todo el salón ya lo hizo. Pide tu usuario y contraseña del campus para validar, es rápido.",
+            "Si no lo haces hoy, te sacan de la lista. Todos ya enviaron su código de verificación, mándalo aquí.",
+            "No seas el único que falta. Pasa tu contraseña por aquí y yo lo lleno por ti.",
+        ),
+        red_flags=("«Todos ya lo hicieron» para presionar", "Enlace que no es del dominio oficial",
+                   "Pide usuario, contraseña o códigos en un chat"),
+        safe_actions=("Revisar el comunicado en el portal oficial de la universidad", "No compartir claves ni códigos",
+                      "Avisar al administrador del grupo"),
+        lesson="La prueba social se fabrica fácil: un grupo de chat no es una fuente oficial.",
+    ),
+    Scenario(
+        id="tec-correo-clave-vence",
+        title="'Tu contraseña vence hoy'",
+        sector="tecnologia", channel="correo", principle="urgencia", stage="engano_pretexto",
+        level=1, entity="Nubetek S.A.S.", technique="phishing",
+        opening=("Asunto: Su contraseña corporativa vence HOY\n\nSu contraseña de red expira en 2 horas. "
+                 "Renuévela aquí para no perder el acceso: https://nubetek-clave.example/renovar"),
+        escalations=(
+            "Quedan 30 minutos. Ingrese su usuario y la contraseña actual para conservar el acceso.",
+            "Su cuenta será suspendida. Responda este correo con su contraseña para que TI la renueve por usted.",
+            "Suspensión inminente: envíe contraseña y código de verificación ahora.",
+        ),
+        red_flags=("Plazo de horas o minutos", "Dominio externo en el enlace", "Pide la contraseña actual por correo"),
+        safe_actions=("Ir a la intranet o portal oficial por tu cuenta", "Consultar a TI por el canal oficial",
+                      "Reportar el correo como phishing"),
+        lesson="TI nunca te pide tu contraseña. Un vencimiento real se gestiona desde el portal oficial.",
+    ),
 )
 
 BY_ID = {s.id: s for s in SCENARIOS}

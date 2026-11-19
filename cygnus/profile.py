@@ -5,6 +5,7 @@ aleatorio y los RESULTADOS de cada simulación. Nunca el texto de los mensajes.
 """
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import threading
@@ -29,17 +30,25 @@ def _conn():
                  channel TEXT NOT NULL, outcome TEXT NOT NULL, score INTEGER NOT NULL,
                  ts REAL NOT NULL)"""
         )
+        con.execute(
+            """CREATE TABLE IF NOT EXISTS programs(
+                 id TEXT PRIMARY KEY, user_id TEXT NOT NULL, created REAL NOT NULL,
+                 pre TEXT, plan TEXT, post TEXT)"""
+        )
+        cols = [r[1] for r in con.execute("PRAGMA table_info(results)")]
+        if "program_id" not in cols:
+            con.execute("ALTER TABLE results ADD COLUMN program_id TEXT")
         yield con
         con.commit()
     finally:
         con.close()
 
 
-def record(user_id: str, sc: Scenario, outcome: str, score: int) -> None:
+def record(user_id: str, sc: Scenario, outcome: str, score: int, program_id: str | None = None) -> None:
     with _lock, _conn() as con:
         con.execute(
-            "INSERT INTO results(user_id,scenario_id,principle,sector,channel,outcome,score,ts) VALUES (?,?,?,?,?,?,?,?)",
-            (user_id, sc.id, sc.principle, sc.sector, sc.channel, outcome, score, time.time()),
+            "INSERT INTO results(user_id,scenario_id,principle,sector,channel,outcome,score,ts,program_id) VALUES (?,?,?,?,?,?,?,?,?)",
+            (user_id, sc.id, sc.principle, sc.sector, sc.channel, outcome, score, time.time(), program_id),
         )
 
 
@@ -56,7 +65,47 @@ def history(user_id: str) -> list[dict]:
 def delete_user(user_id: str) -> int:
     """Derecho de supresión: borra todo lo asociado al identificador."""
     with _lock, _conn() as con:
-        return con.execute("DELETE FROM results WHERE user_id=?", (user_id,)).rowcount
+        n = con.execute("DELETE FROM results WHERE user_id=?", (user_id,)).rowcount
+        n += con.execute("DELETE FROM programs WHERE user_id=?", (user_id,)).rowcount
+        return n
+
+
+# ---- Programas de entrenamiento (diagnóstico -> plan -> simulaciones -> diagnóstico final) ----
+def create_program(pid: str, user_id: str) -> None:
+    with _lock, _conn() as con:
+        con.execute("INSERT INTO programs(id,user_id,created) VALUES (?,?,?)", (pid, user_id, time.time()))
+
+
+def get_program(pid: str) -> dict | None:
+    with _lock, _conn() as con:
+        r = con.execute("SELECT id,user_id,created,pre,plan,post FROM programs WHERE id=?", (pid,)).fetchone()
+    if not r:
+        return None
+    j = lambda x: json.loads(x) if x else None
+    return {"id": r[0], "user_id": r[1], "created": r[2], "pre": j(r[3]), "plan": j(r[4]), "post": j(r[5])}
+
+
+def latest_program(user_id: str) -> dict | None:
+    with _lock, _conn() as con:
+        r = con.execute("SELECT id FROM programs WHERE user_id=? ORDER BY created DESC LIMIT 1", (user_id,)).fetchone()
+    return get_program(r[0]) if r else None
+
+
+def update_program(pid: str, **fields) -> None:
+    assert set(fields) <= {"pre", "plan", "post"}
+    with _lock, _conn() as con:
+        for k, v in fields.items():
+            con.execute(f"UPDATE programs SET {k}=? WHERE id=?", (json.dumps(v), pid))
+
+
+def program_results(pid: str) -> list[dict]:
+    with _lock, _conn() as con:
+        rows = con.execute(
+            "SELECT scenario_id,principle,sector,channel,outcome,score,ts FROM results WHERE program_id=? ORDER BY ts",
+            (pid,),
+        ).fetchall()
+    keys = ("scenario_id", "principle", "sector", "channel", "outcome", "score", "ts")
+    return [dict(zip(keys, r)) for r in rows]
 
 
 def susceptibility(rows: list[dict]) -> dict[str, float]:

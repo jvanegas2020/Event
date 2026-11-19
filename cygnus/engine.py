@@ -31,6 +31,9 @@ FEEDBACK = {
     NEUTRAL: "No rechazaste ni verificaste. Seguir la conversación le da tiempo al atacante para presionar.",
 }
 
+# Calidad de cada respuesta (100 = correcta, 0 = incorrecta): alimenta el mapa de calor en vivo.
+TURN_SCORE = {REPORT: 100, SAFE: 90, NEUTRAL: 45, COMPLY: 15, DISCLOSE: 0}
+
 # Controles ISO/IEC 27001:2022 (Anexo A) vinculados a cada resultado.
 ISO = {
     "A.6.3": "Concienciación, educación y formación en seguridad de la información",
@@ -52,6 +55,7 @@ class Session:
     finished: bool = False
     report: dict | None = None
     created: float = field(default_factory=time.time)
+    program_id: str | None = None
 
 
 _SESSIONS: dict[str, Session] = {}
@@ -64,13 +68,15 @@ def _purge() -> None:
         _SESSIONS.pop(sid, None)
 
 
-def start(user_id: str, scenario_id: str | None = None) -> tuple[Session, str]:
+def start(user_id: str, scenario_id: str | None = None, program_id: str | None = None) -> tuple[Session, str]:
     _purge()
-    if scenario_id:
+    if program_id:
+        sc, why = BY_ID[scenario_id], "Parte de tu plan de entrenamiento personalizado."
+    elif scenario_id:
         sc, why = BY_ID[scenario_id], "Escenario elegido por ti."
     else:
         sc, why = profile.next_scenario(user_id)
-    s = Session(id=uuid.uuid4().hex, user_id=user_id, scenario=sc)
+    s = Session(id=uuid.uuid4().hex, user_id=user_id, scenario=sc, program_id=program_id)
     s.history.append(("attacker", _provider.attacker_message(sc, s.history, 0)))
     _SESSIONS[s.id] = s
     return s, why
@@ -87,7 +93,8 @@ def reply(s: Session, text: str) -> dict:
     s.user_turns += 1
     s.history.append(("user", text))
     verdict = classify(text)
-    s.events.append({"turn": s.user_turns, "verdict": verdict, "feedback": FEEDBACK[verdict]})
+    turn_score = TURN_SCORE[verdict]
+    s.events.append({"turn": s.user_turns, "verdict": verdict, "turn_score": turn_score, "feedback": FEEDBACK[verdict]})
 
     outcome = None
     if verdict == DISCLOSE:
@@ -106,12 +113,14 @@ def reply(s: Session, text: str) -> dict:
     if outcome:
         s.finished = True
         s.report = _build_report(s, outcome)
-        profile.record(s.user_id, s.scenario, outcome, s.report["score"])
-        return {"finished": True, "verdict": verdict, "feedback": FEEDBACK[verdict], "report": s.report}
+        profile.record(s.user_id, s.scenario, outcome, s.report["score"], s.program_id)
+        return {"finished": True, "verdict": verdict, "turn_score": turn_score,
+                "feedback": FEEDBACK[verdict], "report": s.report}
 
     msg = _provider.attacker_message(s.scenario, s.history, s.user_turns)
     s.history.append(("attacker", msg))
-    return {"finished": False, "verdict": verdict, "feedback": FEEDBACK[verdict], "attacker": msg}
+    return {"finished": False, "verdict": verdict, "turn_score": turn_score,
+            "feedback": FEEDBACK[verdict], "attacker": msg}
 
 
 def _build_report(s: Session, outcome: str) -> dict:

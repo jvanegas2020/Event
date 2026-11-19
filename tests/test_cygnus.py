@@ -114,3 +114,101 @@ def test_erase():
 def test_frontend_served():
     assert client.get("/").status_code == 200
     assert client.get("/static/app.js").status_code == 200
+
+
+# ---------------- Programa: diagnóstico -> plan -> simulaciones -> informe ----------------
+from cygnus import diagnostic, program
+
+
+def _answers(phase, pick):
+    """pick: 'safe' | 'risky' -> respuestas con menor / mayor riesgo en cada ítem."""
+    out = {}
+    for it in diagnostic.ITEMS:
+        if it.form in (("A", "H") if phase == "pre" else ("B",)):
+            risks = [r for _, r in it.options]
+            out[it.id] = risks.index(min(risks) if pick == "safe" else max(risks))
+    return out
+
+
+def test_diagnostic_scoring_extremes():
+    assert diagnostic.score("pre", _answers("pre", "safe"))["overall"] == 0
+    r = diagnostic.score("pre", _answers("pre", "risky"))
+    assert r["overall"] == 100 and r["level"] == "crítico"
+    assert diagnostic.risk_level(24) == "bajo" and diagnostic.risk_level(50) == "alto"
+
+
+def test_diagnostic_rejects_incomplete_or_invalid():
+    with pytest.raises(ValueError):
+        diagnostic.score("pre", {"A1": 0})
+    bad = _answers("pre", "safe"); bad["A1"] = 99
+    with pytest.raises(ValueError):
+        diagnostic.score("pre", bad)
+
+
+def test_questions_do_not_leak_risk_and_forms_are_parallel():
+    qs = diagnostic.questions("pre")
+    assert all("risk" not in str(q) for q in qs)
+    a = {i.principle for i in diagnostic.ITEMS if i.form == "A"}
+    b = {i.principle for i in diagnostic.ITEMS if i.form == "B"}
+    assert a == b == set(PRINCIPLES)
+
+
+def test_plan_is_dynamic():
+    high = program.build_plan(diagnostic.score("pre", _answers("pre", "risky")))
+    low_ans = _answers("pre", "safe"); low_ans["A2"] = [r for _, r in diagnostic.BY_ID["A2"].options].index(100)
+    low = program.build_plan(diagnostic.score("pre", low_ans))
+    assert high["n"] == 6 and low["n"] == 3
+    assert low["items"][0]["principle"] == "urgencia"        # empieza por lo más débil
+    # riesgo alto -> el escenario más básico disponible para ese principio
+    for i in high["items"]:
+        lowest = min(sc.level for sc in SCENARIOS if sc.principle == i["principle"])
+        assert i["level"] == lowest
+
+
+def test_full_program_flow_and_report():
+    uid = "programa-flujo-01"
+    st = client.post("/api/program", json={"user_id": uid, "consent": True}).json()
+    pid = st["program_id"]; assert st["stage"] == "diagnostico_inicial"
+    # no se puede simular sin diagnóstico
+    assert client.post(f"/api/program/{pid}/session").status_code == 409
+    qs = client.get(f"/api/program/{pid}/diagnostic/pre").json()["questions"]
+    assert len(qs) == 10
+    r = client.post(f"/api/program/{pid}/diagnostic/pre", json={"answers": _answers("pre", "risky")}).json()
+    assert r["state"]["stage"] == "entrenamiento" and r["plan"]["n"] == 6
+    # el diagnóstico inicial no se puede repetir
+    assert client.post(f"/api/program/{pid}/diagnostic/pre", json={"answers": _answers("pre", "safe")}).status_code == 400
+    # simulaciones del plan, con respuestas seguras
+    for k in range(6):
+        s = client.post(f"/api/program/{pid}/session").json()
+        assert s["index"] == k + 1
+        assert s["scenario"]["id"] == r["plan"]["items"][k]["scenario_id"]
+        m = client.post(f"/api/session/{s['session_id']}/message",
+                        json={"text": "no voy a dar nada, llamo al número oficial"}).json()
+        assert m["finished"] and m["turn_score"] == 90
+    st = client.get(f"/api/program/{pid}").json()
+    assert st["stage"] == "diagnostico_final"
+    assert client.get(f"/api/program/{pid}/report").status_code == 409   # aún no
+    hm = st["heatmap"]
+    assert len(hm["rows"]) == 6 and len(hm["columns"]) == 8
+    assert any(v == 10 for row in hm["rows"] for v in row["cells"])      # sim con score 90 -> riesgo 10
+    client.post(f"/api/program/{pid}/diagnostic/post", json={"answers": _answers("post", "safe")})
+    rep = client.get(f"/api/program/{pid}/report").json()
+    assert rep["before"]["level"] == "crítico" and rep["after"]["overall"] == 0
+    assert rep["improved"] and rep["delta"] == -100
+    assert len(rep["simulations"]) == 6 and rep["habit_findings"]
+
+
+def test_post_diagnostic_requires_finished_training():
+    uid = "programa-flujo-02"
+    pid = client.post("/api/program", json={"user_id": uid, "consent": True}).json()["program_id"]
+    client.post(f"/api/program/{pid}/diagnostic/pre", json={"answers": _answers("pre", "safe")})
+    r = client.post(f"/api/program/{pid}/diagnostic/post", json={"answers": _answers("post", "safe")})
+    assert r.status_code == 400
+
+
+def test_live_turn_score_for_heatmap():
+    sid, _ = None, None
+    s = client.post("/api/session", json={"user_id": UID, "consent": True, "scenario_id": "fin-sms-bloqueo"}).json()
+    m1 = client.post(f"/api/session/{s['session_id']}/message", json={"text": "hmm, quién es?"}).json()
+    m2 = client.post(f"/api/session/{s['session_id']}/message", json={"text": "mi clave es 998877"}).json()
+    assert m1["turn_score"] == 45 and m2["turn_score"] == 0
